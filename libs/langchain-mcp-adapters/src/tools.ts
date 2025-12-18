@@ -202,14 +202,13 @@ function isResourceReference(
   resource:
     | EmbeddedResource["resource"]
     | ReadResourceResult["contents"][number]
-): boolean {
+) {
   return (
     typeof resource === "object" &&
     resource !== null &&
-    "uri" in resource &&
-    typeof (resource as { uri?: unknown }).uri === "string" &&
-    (!("blob" in resource) || resource.blob == null) &&
-    (!("text" in resource) || resource.text == null)
+    resource.uri != null &&
+    resource.blob == null &&
+    resource.text == null
   );
 }
 
@@ -233,7 +232,7 @@ async function* _embeddedResourceToStandardFileBlocks(
     return;
   }
 
-  if ("blob" in resource && resource.blob != null) {
+  if (resource.blob != null) {
     yield {
       type: "file",
       source_type: "base64",
@@ -243,7 +242,7 @@ async function* _embeddedResourceToStandardFileBlocks(
     } as ContentBlock.Data.StandardFileBlock &
       ContentBlock.Data.Base64ContentBlock;
   }
-  if ("text" in resource && resource.text != null) {
+  if (resource.text != null) {
     yield {
       type: "file",
       source_type: "text",
@@ -361,14 +360,9 @@ async function _embeddedResourceToArtifact(
     );
   }
 
-  if (
-    (!("blob" in resource) || resource.blob == null) &&
-    (!("text" in resource) || resource.text == null) &&
-    "uri" in resource &&
-    typeof resource.uri === "string"
-  ) {
+  if (!resource.blob && !resource.text && resource.uri) {
     const response: ReadResourceResult = await client.readResource({
-      uri: resource.uri,
+      uri: resource.resource.uri,
     });
 
     return response.contents.map(
@@ -502,9 +496,7 @@ async function _convertCallToolResult({
   if (result.isError) {
     throw new ToolException(
       `MCP tool '${toolName}' on server '${serverName}' returned an error: ${result.content
-        .map((content: MCPContentBlock) =>
-          content.type === "text" ? content.text : ""
-        )
+        .map((content: MCPContentBlock) => content.text)
         .join("\n")}`
     );
   }
